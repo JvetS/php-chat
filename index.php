@@ -6,12 +6,25 @@ $app = new \Slim\Slim();
 
 $db = new SQLite3('db.sqlite3');
 
+//Add group for version separation.
 $app->group('/api/v1', function() use (&$app, &$db) {
+
+  // Authentication function.
+  // Will throw on unauthorized access.
+  // All authorization is done using HTTP Basic Authentication.
   function performAuthentication($app, $db) {
     $username = $app->request->headers->get('Php-Auth-User');
     $password = $app->request->headers->get('Php-Auth-Pw');
     if ($username && $password) {
-      $stmt = $db->prepare('SELECT * FROM users WHERE username = :username AND password = :password');
+      $stmt = $db->prepare(
+        'SELECT
+          *
+        FROM
+          users
+        WHERE
+          username = :username AND password = :password'
+      );
+
       $stmt->bindValue(':username', $username, SQLITE3_TEXT);
       $stmt->bindValue(':password', $password, SQLITE3_TEXT);
       $set = $stmt->execute();
@@ -25,8 +38,21 @@ $app->group('/api/v1', function() use (&$app, &$db) {
     }
   }
 
+  // Set default Content-Type.
   $app->response->headers->set('Content-Type', 'application/json');
 
+  /* All methods follow the same general style. (Hmmm, method extraction maybe?)
+   * A declaration of the default return value.
+   * Enter try block.
+   * An authentication check.
+   * Some SQL based on the action tied to the route.
+   * Some update of the return value based on query results. (Mostly not for POST based methods.)
+   * Exit try block.
+   * Obligatory catch block, which will update the error property.
+   * Write JSON encoded return collection back to the client.
+  */
+
+  // Get all sent/received messages for the authorized user.
   $app->get('/messages', function() use (&$app, &$db) {
     $res = [
       'messages' => null,
@@ -83,6 +109,7 @@ $app->group('/api/v1', function() use (&$app, &$db) {
     echo json_encode($res);
   });
 
+  // Remove all sent messages for the authorized user.
   $app->delete('/messages', function() {
     $res = [
       'error' => null
@@ -107,6 +134,7 @@ $app->group('/api/v1', function() use (&$app, &$db) {
     echo json_encode($res);
   });
 
+  // Get all messages sent to the specified user for the authorized user.
   $app->get('/messages/:username', function($username) use (&$app, &$db) {
     $res = [
       'messages' => null,
@@ -165,6 +193,7 @@ $app->group('/api/v1', function() use (&$app, &$db) {
     echo json_encode($res);
   });
 
+  // Send a message to the specified user for the authorized user.
   $app->post('/messages/:username', function($username) use (&$app, &$db) {
     $res = [
       'error' => null
@@ -197,6 +226,7 @@ $app->group('/api/v1', function() use (&$app, &$db) {
     echo json_encode($res);
   });
 
+  // Remove all messages sent to the specified user for the authorized user.
   $app->delete('/messages/:username', function($username) use (&$app, &$db) {
     $res = [
       "error" => null
@@ -224,6 +254,7 @@ $app->group('/api/v1', function() use (&$app, &$db) {
     echo json_encode($res);
   });
 
+  // Create a new user, given the specified username and password in the JSON formatted POST data.
   $app->post('/users', function() use (&$app, &$db) {
     $res = [
       "error" => null
@@ -247,6 +278,9 @@ $app->group('/api/v1', function() use (&$app, &$db) {
     echo json_encode($res);
   });
 
+  // Update the specified user for the authorized user.
+  // Currently only accepts the modification if both users are the same.
+  // Could be extended in the database to support user management.
   $app->post('/users/:username', function($username) use (&$app, &$db) {
     $params = [
       "username" => ":username",
@@ -266,12 +300,20 @@ $app->group('/api/v1', function() use (&$app, &$db) {
         $update_stmt = $update_params;
         $update_values = array_intersect_key($req, $update_params);
 
+        // Attention! This doesn't concat the actual keys/values, it concats the param binding.
         array_walk($update_stmt, function(&$value, &$key) {
           $value = "$key=$value";
         });
 
-        $stmt = $db->prepare('UPDATE users SET ' . implode(',',$update_stmt) . ' WHERE username=:old;');
+        $stmt = $db->prepare(
+          'UPDATE
+            users
+          SET ' . implode(',',$update_stmt) . 'WHERE
+            username = :old;'
+        );
         $stmt->bindValue(':old', $username, SQLITE3_TEXT);
+
+        // Actual binding of the parameters is done here.
         foreach ($update_params as $key => $value) {
           $stmt->bindValue($value, $update_values[$key], SQLITE3_TEXT);
         }
@@ -287,6 +329,9 @@ $app->group('/api/v1', function() use (&$app, &$db) {
     echo json_encode($res);
   });
 
+  // Remove the specified user for the authorized user.
+  // Same user management features as for updating.
+  // Will also remove all sent/received messages for this user.
   $app->delete('/users/:username', function($username) use (&$app, &$db) {
     $res = [
       'error' => null
@@ -295,14 +340,20 @@ $app->group('/api/v1', function() use (&$app, &$db) {
     try {
       performAuthentication($app, $db);
 
-      $stmt = $db->prepare(
-        'DELETE FROM
-          users
-        WHERE
-          username = :username;'
-      );
-      $stmt->bindValue(':username', $username, SQLITE3_TEXT);
-      $stmt->execute()->finalize();
+      $user = $app->request->headers->get('Php-Auth-User');
+
+      if ($user === $username) {
+        $stmt = $db->prepare(
+          'DELETE FROM
+            users
+          WHERE
+            username = :username;'
+        );
+        $stmt->bindValue(':username', $username, SQLITE3_TEXT);
+        $stmt->execute()->finalize();
+      } else {
+        throw new Exception('Not authorized for this combination of users.');
+      }
     } catch (Exception $e) {
       $app->response->setStatus(400);
       $res['error'] = $e->getMessage();
@@ -312,7 +363,7 @@ $app->group('/api/v1', function() use (&$app, &$db) {
   });
 });
 
-
+// RUN, RUN, RUDOLF!
 $app->run();
 
 ?>
