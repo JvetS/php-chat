@@ -1,0 +1,129 @@
+--- Minimal Implementation V1 ---
+
+- Identify user using a token. (Placeholder implementation shown below, should be replaced with at least basic authentication.)
+- Allow user to send simple text message to another user.
+- Allow user to retrieve all messages sent to him.
+
+Methods:
+
+POST /messages/<user>
+WWW-Authenticate: Token <user>
+Content-Type: application/json
+
+params:
+{
+"message" : "<msg>"
+}
+
+result:
+{
+"error" : null
+}
+
+error:
+{
+"error" : "<errmsg>"
+}
+
+GET /messages
+WWW-Authenticate: Token <user>
+Content-Type: application/json
+
+result:
+{
+"messages" : [{
+"from" : "<user>",
+"to" : "<user>",
+"message" : "<msg>",
+"timestamp" : "<datetime>",
+}],
+"error" : null
+}
+
+error:
+{
+"messages" : null,
+"error" : "<errmsg>"
+}
+
+--- Basic Implementation V1 ---
+
+- Allow user to retrieve messages by another user.
+- Allow user to delete messages.
+- Allow user to delete messages by another user.
+
+Methods:
+
+GET /messages/<user>
+WWW-Authenticate: Token <user>
+Content-Type: application/json
+
+result:
+{
+"messages" : [{
+"from" : "<user>",
+"to" : "<user>",
+"message" : "<msg>",
+"timestamp" : "<datetime>",
+}],
+"error" : null
+}
+
+{
+"messages" : null,
+"error" : "<errmsg>"
+}
+
+DELETE /messages
+WWW-Authenticate: Token <user>
+Content-Type: None
+
+DELETE /messages/<user>
+WWW-Authenticate: Token <user>
+Content-Type: None
+
+--- Full Implementation V1 ---
+
+- Allow user to register using username and password.
+- Identify user using HTTP Basic Authentication. (There we go, semi-secure protection! This API should only be hosted over HTTPS to guarantee some level of safety, because the HTTP packet contains the plaintext user/pass pair.)
+
+Methods:
+
+POST /users
+Content-Type: application/json
+
+params:
+{
+"username": "<user>"
+"password": "<password>"
+}
+
+result:
+{
+"error" : null
+}
+
+error:
+{
+"error" : "<errmsg>"
+}
+
+POST /users/<user>
+
+params:
+{
+"username" : "<user>"
+"password" : "<password>"
+}
+
+--- V2 Improvements ---
+
+- Allow users to delete a single message from a set of messages.
+- Allow users to assign supervisors, whom may change the account details.
+- Move boilerplate into helper method(s).
+- Use ORM/Data Mapping framework instead of plain SQL & driver calls. (Mostly done to showcase general SQL knowledge)
+- Add streaming JSON feed for realtime inspection of messages.
+- Make timestamp JSON compliant.
+- Harden against security flaws. (Hashing passwords in the DB and adding DB level access rights would be a good start.)
+- Investigate performance and scalability on different platforms. (Node.js/Express offer a very clean environment to improve on this, without relying on Apache to "prettify" the URL.)
+- Appify the API. (Add a simple GUI based on some client-side MVC framework.)

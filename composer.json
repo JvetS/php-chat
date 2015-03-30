@@ -1,0 +1,13 @@
+{
+    "name": "jvets/php-chat",
+    "description": "Simple chat app.",
+    "require": {
+        "slim/slim": "*"
+    },
+    "authors": [
+        {
+            "name": "Steven van Rossum",
+            "email": "stevenvanrossum@gmail.com"
+        }
+    ]
+}
